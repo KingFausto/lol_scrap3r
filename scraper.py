@@ -57,7 +57,8 @@ if role:
     url += ROLES[role]
 
 # get the main table with all the information
-r = requests.get(url)
+headers = {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.0 Safari/537.36'}
+r = requests.get(url, headers=headers)
 soup = BeautifulSoup(r.text, 'html.parser')
 main_table = soup.find_all('td', class_='champion-overview__data')
 
@@ -181,7 +182,6 @@ for i in range(len(shards)):
          shards[i] + Style.RESET_ALL, parent=keystone_node)
 
 # display the tree
-os.system('cls')
 for pre, fill, node in RenderTree(root):
     print(f'{pre} {node.name}')
 
