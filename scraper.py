@@ -29,7 +29,7 @@ MYTHIC_ITEMS = [
     "Locket of the Iron Solari", "Luden's Tempest", "Moonstone Renewer",
     "Night Harvester", "Prowler's Claw", "Riftmaker",
     "Shurelya's Battlesong", "Stridebreaker", "Sunfire Aegis",
-    "Trinity Force", "Turbo Chemtank",
+    "Trinity Force", "Turbo Chemtank", "Evenshroud", "Crown of the Shattered Queen"
 ]
 
 
