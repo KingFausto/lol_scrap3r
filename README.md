@@ -1,4 +1,4 @@
-#### Summary
+## Summary
 
 **OPGG Scraper** is a web scraper written in Python to quickly look up [op.gg](https://www.op.gg) builds for League of Legends from the terminal.
 
@@ -8,7 +8,7 @@ Example:
 
 <img src="/assets/images/image-1.png" style="zoom:50%;" />
 
-#### Role Flags
+## Role Flags
 
 A role can also be specified by using a flag. This is useful in cases where a champion can be played in many roles and we are interested in their non-main role. 
 
@@ -24,7 +24,7 @@ The role-specifying flags are as follows:
 * '-b' for adc
 * '-s' for support
 
-#### Mode Flags
+## Mode Flags
 
 Finally, similar to the roles flags a mode can be specified alongside the champion. By default, ranked data will be requested, but ARAM and URF are also available by writing "aram" or "urf" respectively after the champion name. 
 
