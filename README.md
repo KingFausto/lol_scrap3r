@@ -10,7 +10,7 @@ Example:
 
 ## Role Flags
 
-A role can also be specified by using a flag. This is useful in cases where a champion can be played in many roles and we are interested in their non-main role. 
+A role can also be specified by using a flag. This is useful in cases where a champion can be played in many roles but we are interested in one of its non-main roles. 
 
 > For example, Akshan is mostly played mid but if we want to see his builds for top, we  can use the '-t' flag. 
 
