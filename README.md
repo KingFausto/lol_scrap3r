@@ -30,5 +30,5 @@ Finally, similar to the roles flags a mode can be specified alongside the champi
 
 Example:
 
-<img src="/assets/images/image-1.png" style="zoom:50%;" />
+<img src="/assets/images/image-3.png" style="zoom:50%;" />
 
