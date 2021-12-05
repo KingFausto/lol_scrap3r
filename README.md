@@ -1,8 +1,8 @@
 #### Summary
 
-**OPGG Scraper** is a web scraper written in Python to quickly look up [op.gg][https://www.op.gg] builds for League of Legends from the terminal.
+**OPGG Scraper** is a web scraper written in Python to quickly look up [op.gg](https://www.op.gg) builds for League of Legends from the terminal.
 
-It uses [BeautifulSoup][https://www.crummy.com/software/BeautifulSoup/] to scrape the website, and [anytree][https://github.com/c0fec0de/anytree] + [colorama][https://github.com/tartley/colorama] for the result visualization. 
+It uses [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) to scrape the website, and [anytree](https://github.com/c0fec0de/anytree) + [colorama](https://github.com/tartley/colorama) for the result visualization. 
 
 Example:
 
@@ -10,7 +10,9 @@ Example:
 
 #### Role Flags
 
-A role can also be specified by using a flag. This is useful in cases where a champion can be played in many roles and we are interested in their non-main role. For example, Akshan is mostly played mid but if we want to see his builds for top, we  can use the '-t' flag. 
+A role can also be specified by using a flag. This is useful in cases where a champion can be played in many roles and we are interested in their non-main role. 
+
+> For example, Akshan is mostly played mid but if we want to see his builds for top, we  can use the '-t' flag. 
 
 <img src="/Users/faust/Library/Application Support/typora-user-images/Screen Shot 2021-12-04 at 23.10.56.png" alt="Screen Shot 2021-12-04 at 23.10.56" style="zoom:50%;" />
 
