@@ -3,8 +3,8 @@ from colorama import Fore
 ROLES = {
     "top": "Top",
     "jgl": "Jungle",
-    "mid": "Mid",
-    "bot": "Bottom",
+    "mid": "Middle",
+    "bot": "ADC",
     "sup": "Support",
 }
 

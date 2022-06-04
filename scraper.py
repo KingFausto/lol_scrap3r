@@ -1,198 +1,197 @@
 import re
 import requests
 from bs4 import BeautifulSoup
-from constants import ROLES, MYTHIC_ITEMS, COLORS
 from anytree import Node, RenderTree
 from colorama import init, deinit, Fore, Style
+from constants import ROLES, MYTHIC_ITEMS, COLORS
+
+# TODO: fix adaptive shards
 
 
 class OpggScraper:
-    def __init__(self, role: str, champion: str, mode: str = "champion"):
-        self.role: str = role
-        self.champion: str = champion
-        self.mode: str = mode
-        self.soup: BeautifulSoup = None
-        self.main_table: list = []
+    def __init__(self, role: str, champion: str, mode: str) -> None:
+        self.role = role
+        self.champion = champion
+        self.mode = mode
+        self._cook_soup()
 
-    # helper function to clean up information from certain queries
-    def parse_results(self, results, regex=r"&gt;(.*?)&"):
-        return [re.search(regex, str(i)).group(1) for i in results]
+    def _get_item_name_from_id(self, id: str) -> str:
+        return self.item_ids[id]["name"]
 
-    def cook_soup(self):
-        url = f"https://www.op.gg/{self.mode}/{self.champion}/statistics/"
-        if self.role:
-            self.role = ROLES["jgl"] if self.role == "jgl" else ROLES[self.role]
-            url += self.role
-        # get the main table with all the information
+    def _cook_soup(self) -> None:
+        if self.mode == "champion":
+            if self.role:
+                url = f"https://www.op.gg/{self.mode}s/{self.champion}/{ROLES[self.role]}/build?region=global&tier=gold_plus"
+            else:
+                url = f"https://www.op.gg/{self.mode}/{self.champion}/build?region=global&tier=gold_plus"
+        else:
+            url = f"https://www.op.gg/modes/{self.mode}/{self.champion}/build?region=global"
+
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.0 Safari/537.36"
         }
+
         r = requests.get(url, headers=headers)
-        self.soup = BeautifulSoup(r.text, "html.parser")
-        self.main_table = self.soup.find_all("td", class_="champion-overview__data")
-        if not self.role:
-            self.role = self.soup.find(
-                "h1", class_="champion-stats-header-info__name"
-            ).text.split()[-1]
+        self.soup = BeautifulSoup(r.content, "html.parser")
+
+        latest_patch = requests.get(
+            "https://ddragon.leagueoflegends.com/api/versions.json"
+        ).json()[0]
+        self.item_ids = requests.get(
+            f"https://ddragon.leagueoflegends.com/cdn/{latest_patch}/data/en_US/item.json"
+        ).json()["data"]
+        return
 
     def get_patch(self):
-        return self.soup.find(
-            "div", class_="champion-stats-header-version"
-        ).text.split()[-1]
+        return re.search(r"\(.*(Season .*)\)", self.soup.title.text).group(1)
 
-    def get_summoners(self):
-        summoner_pick_rates = self.soup.find_all(
-            "td", class_="champion-overview__stats champion-overview__stats--pick"
-        )
+    def get_role(self):
+        return re.search(r"\((.*)\,.*\)", self.soup.title.text).group(1)
+
+    def get_summoners(self) -> list[str]:
         summoners: list = []
-
-        for i in range(0, 2):
+        css_class = (
+            "css-1oyezvu e1cidvo94"
+            if self.mode == "champion"
+            else "css-18fgzez e1cidvo90"
+        )
+        for i, summoners_row in enumerate(self.soup.find_all("div", class_=css_class)):
             summoners.append(
-                self.parse_results(
-                    self.main_table[i].find_all(
-                        "li", class_="champion-stats__list__item"
-                    )
-                )
-                + summoner_pick_rates[i].text.strip().split("\n")[:-1]
+                " + ".join([img.get("alt") for img in summoners_row.select("img")])
             )
-            summoners[
-                i
-            ] = f"{' + '.join(summoners[i][:2])} {Style.BRIGHT + Fore.BLACK}({summoners[i][2]} PR){Style.RESET_ALL}"
+            pickrates = summoners_row.find("div", class_="pick_rate").strong.text
+            winrates = summoners_row.find("div", class_="win_rate").text
+            summoners[i] += f" {Style.BRIGHT+Fore.BLACK}({pickrates} PR){Style.RESET_ALL}"
+            summoners[i] += f" {Style.BRIGHT+Fore.YELLOW}({winrates} WR){Style.RESET_ALL}"
 
         return summoners
 
-    def get_skill_order(self):
-        skill_order = (
-            self.main_table[2].find("table", class_="champion-skill-build__table").text
-        )
-        return skill_order.replace("\t", "").replace("\n", "")[-15:]
+    def get_skill_order(self) -> str:
+        return self.soup.find("div", class_="css-hkh81z e1dv0fw31").text
 
-    def get_items(self):
-        pick_rate = self.soup.find_all(
-            "td",
-            class_="champion-overview__stats champion-overview__stats--pick champion-overview__border",
-        )
-
-        items: list = []
-        for i in range(3, 13):
-            items.append(
-                self.parse_results(
-                    self.main_table[i].find_all(
-                        "li", class_="champion-stats__list__item tip"
+    def _generate_item_strings(self, table, check_for_mythics: bool = False, verbose: bool = False) -> list[str]:
+        results: list = []
+        for i, row in enumerate(table.tbody.find_all("tr")):
+            item_ids = [
+                re.search(r"item\/(\d*)\.", str(i)).group(1)
+                for i in [img.get("src") for img in row.find_all("img")]
+            ]
+            if check_for_mythics:
+                item_names = [self._get_item_name_from_id(id) for id in item_ids]
+                results.append(
+                    " + ".join(
+                        [
+                            f"{Style.BRIGHT + Fore.MAGENTA}{x}{Style.RESET_ALL}"
+                            if x in MYTHIC_ITEMS
+                            else x
+                            for x in item_names
+                        ]
                     )
                 )
-                + pick_rate[i - 3].text.strip().split("\n")
+            else:
+                results.append(
+                    " + ".join([self._get_item_name_from_id(id) for id in item_ids])
+                )
+            if verbose:
+                pickrates, winrates = row.find_all("strong")
+                results[i] += f" {Style.BRIGHT+Fore.BLACK}({pickrates.text} PR){Style.RESET_ALL}"
+                results[i] += f" {Style.BRIGHT+Fore.YELLOW}({winrates.text} WR){Style.RESET_ALL}"
+
+        return results
+
+    def get_items(self):
+        if self.mode == "champion":
+            starters_table, boots_table, items_table = self.soup.find_all(
+                "table", class_="css-xcse24 exo2f213"
+            )
+        else:
+            _, starters_table, boots_table, items_table = self.soup.find_all(
+                "table", class_="css-xcse24 exo2f213"
             )
 
-            for j in range(len(items[i - 3][:-2])):
-                if items[i - 3][j] in MYTHIC_ITEMS:
-                    items[i - 3][j] = (
-                        Style.BRIGHT + Fore.MAGENTA + items[i - 3][j] + Style.RESET_ALL
-                    )
-            if i < 10:
-                items[
-                    i - 3
-                ] = f"{' + '.join(items[i - 3][:-2])} {Style.BRIGHT + Fore.BLACK}({items[i - 3][-2]} PR){Style.RESET_ALL}"
-            else:
-                items[
-                    i - 3
-                ] = f"{items[i - 3][0]} {Style.BRIGHT + Fore.BLACK}({items[i - 3][1]} PR){Style.RESET_ALL}"
+        starters = self._generate_item_strings(starters_table, verbose=True)
+        boots = self._generate_item_strings(boots_table, verbose=True)
+        items = self._generate_item_strings(items_table, verbose=False, check_for_mythics=True)
 
-        return items
+        return starters, boots, items
 
     def get_runes(self):
-        keystone = self.parse_results(
-            self.main_table[13].find_all(
-                "div",
-                class_="perk-page__item perk-page__item--keystone perk-page__item--active",
-            )
-        )[0]
-
-        runes = self.parse_results(
-            self.main_table[13].find_all(
-                "div", class_="perk-page__item perk-page__item--active"
-            )
-        )
-
-        shards = self.parse_results(
-            self.main_table[13].find_all("img", class_="active tip"), r"span&gt;(.*?)&"
-        )
-
-        rune_trees = self.soup.find(
-            "div", class_="champion-stats-summary-rune__name"
-        ).text.split(" + ")
-        primary_color = COLORS[rune_trees[0]]
-        secondary_color = COLORS[rune_trees[1]]
+        keystone = self.soup.find("div", class_="css-r2m0dx e1o8f101").img.get("alt")
+        runes = [
+            rune.img.get("alt")
+            for rune in self.soup.find_all("div", class_="css-1rjzcri e1o8f101")
+        ]
+        shards = [
+            shard.get("alt")
+            for shard in self.soup.find_all("img", class_="css-anaetp e1gtrici1")
+        ]
+        trees = [
+            tree.string
+            for tree in self.soup.find_all("h5", class_="css-nx19kd e1o8f100")
+        ]
+        primary_color, secondary_color = [COLORS[tree] for tree in trees]
 
         return keystone, runes, shards, primary_color, secondary_color
 
-    def build_tree(self):
-        self.cook_soup()
-        current_patch = self.get_patch()
-        root_title = f"{self.champion.title()} {self.role if self.mode == 'champion' else self.mode.title()} Builds for Patch {current_patch}"
-        root = Node(Style.BRIGHT + Fore.GREEN + root_title + Style.RESET_ALL)
+    def _create_node(self, text: str, parent: Node, color: str, bright: bool = False) -> Node:
+        return Node(
+            f"{Style.BRIGHT if bright else Style.NORMAL}{color}{text}{Style.RESET_ALL}",
+            parent=parent,
+        )
 
-        # summoners
+    def _create_title_node(self, text: str, parent: Node) -> Node:
+        return self._create_node(text, parent, Fore.BLUE, bright=True)
+
+    def _create_subtitle_node(self, text: str, parent: Node) -> Node:
+        return self._create_node(text, parent, Fore.RED, bright=True)
+
+    def build_tree(self) -> None:
         summoners = self.get_summoners()
-        summoners_node = Node(
-            Style.BRIGHT + Fore.BLUE + "Summoner Spells" + Style.RESET_ALL, parent=root
-        )
-        for i in range(0, 2):
-            Node(summoners[i], parent=summoners_node)
-
-        # skills
         skills = self.get_skill_order()
-        skills_node = Node(
-            Style.BRIGHT + Fore.BLUE + "Skill Order" + Style.RESET_ALL, parent=root
-        )
+        starters, boots, items = self.get_items()
+        keystone, runes, shards, primary_color, secondary_color = self.get_runes()
+
+        patch = self.get_patch()
+
+        root_title = f"{self.champion.title()} {self.get_role() if self.mode == 'champion' else self.mode.upper()} Builds for {patch}"
+
+        root = self._create_node(root_title, parent=None, color=Fore.MAGENTA, bright=True)
+
+        # Summoners
+        summoners_node = self._create_title_node("Summoner Spells", root)
+        for summoners_group in summoners:
+            Node(summoners_group, parent=summoners_node)
+
+        # Skill Order
+        skills_node = self._create_title_node("Skill Order", parent=root)
         Node(skills, parent=skills_node)
 
-        # items
-        items = self.get_items()
-        items_node = Node(
-            Style.BRIGHT + Fore.BLUE + "Item Builds" + Style.RESET_ALL, parent=root
-        )
-        starters = Node(
-            Style.BRIGHT + Fore.RED + "Starter Items" + Style.RESET_ALL,
-            parent=items_node,
-        )
-        for i in range(0, 2):
-            Node(items[i], parent=starters)
+        # Item Builds
+        items_node = self._create_title_node("Item Builds", root)
+        starters_node = self._create_subtitle_node("Starter Items", items_node)
+        for starter in starters:
+            Node(starter, parent=starters_node)
+        builds = self._create_subtitle_node("Recommended Builds", items_node)
+        for item in items:
+            Node(item, parent=builds)
+        boots_node = self._create_subtitle_node("Boots", items_node)
+        for boot in boots:
+            Node(boot, parent=boots_node)
 
-        builds = Node(
-            Style.BRIGHT + Fore.RED + "Recommended Builds" + Style.RESET_ALL,
-            parent=items_node,
-        )
-        for i in range(2, 7):
-            Node(items[i], parent=builds)
+        # Runes
+        runes_node = self._create_title_node("Runes", root)
+        keystone_node = self._create_node(keystone, runes_node, primary_color)
 
-        boots = Node(
-            Style.BRIGHT + Fore.RED + "Boots" + Style.RESET_ALL, parent=items_node
-        )
-        for i in range(7, 10):
-            Node(items[i], parent=boots)
-
-        # runes
-        keystone, runes, shards, primary_color, secondary_color = self.get_runes()
-        runes_node = Node(
-            Style.BRIGHT + Fore.BLUE + "Runes" + Style.RESET_ALL, parent=root
-        )
-        keystone_node = Node(primary_color + keystone + Fore.RESET, parent=runes_node)
-
-        for i in range(len(runes)):
-            if i < 3:
-                Node(primary_color + runes[i] + Fore.RESET, parent=keystone_node)
+        for i, rune in enumerate(runes):
+            if i < 3: 
+                self._create_node(rune, keystone_node, primary_color)
             else:
-                Node(secondary_color + runes[i] + Fore.RESET, parent=keystone_node)
+                self._create_node(rune, keystone_node, secondary_color)
 
-        for i in range(len(shards)):
-            Node(
-                Style.BRIGHT + Fore.YELLOW + shards[i] + Style.RESET_ALL,
-                parent=keystone_node,
-            )
+        # for shard in shards:
+        #     self._create_node(shard.title(), keystone_node, Fore.MAGENTA)
 
-        # display the tree
         init()
         for pre, _, node in RenderTree(root):
-            print(f"{pre} {node.name}")
+            print(f"{pre}{node.name}")
         deinit()

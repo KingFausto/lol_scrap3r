@@ -23,10 +23,6 @@ def main():
 
     args = parser.parse_args()
 
-    role: str = args.role
-    champion: str = args.champion
-    mode: str = ""
-
     if args.aram:
         mode = "aram"
     elif args.urf:
@@ -34,7 +30,7 @@ def main():
     else:
         mode = "champion"
 
-    scraper = OpggScraper(role=role, champion=champion, mode=mode)
+    scraper = OpggScraper(role=args.role, champion=args.champion, mode=mode)
     scraper.build_tree()
 
 
